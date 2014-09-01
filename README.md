@@ -17,5 +17,9 @@ Run by using:
 
 ```sudo ./atos ccv2012.ntwk -2 model_2012_l2_p5p50_n4 /dev/shm/out```
 
+## How does the petselfie work?
+
+The petselfie works by  detecting your pets presence in PetBot's field of view through the USB webcam. If a pet is detected then PetBot plays a sound, starts recording a 10second video clip and drops a treat. Once the video clip is recorded and your pet is done munching on their treat :) the initial suprise selfie that trigged the detector along with the video clip is sent to your mobile device with a clever petbot caption. Enjoy!
+
 ## License
 All content here is copyright Michael (Misko) Dzamba 2014. Unless otherwise stated in the headers. Please feel free to use any of my code or trained models for any personal projects. If you would like to package parts of this software with your product please contact me for further details.
