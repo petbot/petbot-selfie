@@ -1,6 +1,6 @@
 #PetBot selfie
 
-An open source repository for [PetBot](http://petbot.ca) dog recognition software.
+A repository for [PetBot](http://petbot.ca) dog recognition software.
 
 Here we store code to recognize dogs from a USB camera from the raspberry pi.
 
