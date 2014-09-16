@@ -16,6 +16,7 @@ Included in this repository is:
 Run by using:
 
 ```wget https://petbot.ca/static/data/model_2012_l2_p5p50_n4```
+
 ``sudo ./atos ccv2012.ntwk -2 model_2012_l2_p5p50_n4 /dev/shm/out```
 
 ## How does the petselfie work?
