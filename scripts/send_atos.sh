@@ -7,8 +7,8 @@ selfie_marked=/dev/shm/petbot_selfie.jpg
 rm -f ${selfie_clip}
 rm -f ${selfie_marked}
 
-/bin/sh /home/pi/petbot/play_sound.sh "https://petbot.ca/static/sounds/mpu.mp3"
 /home/pi/petbot-selfie/scripts/gst-record.sh 320x240 500000 10 ${selfie_clip} &
+/bin/sh /home/pi/petbot/play_sound.sh "https://petbot.ca/static/sounds/mpu.mp3"
 sleep 0.5 
 sudo /home/pi/petbot/single_cookie/single_cookie 10
 wait # wait for clip to finish recording

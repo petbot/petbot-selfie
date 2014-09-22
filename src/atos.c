@@ -65,6 +65,7 @@ void unload_module(char * s) {
                 char * args[] = { "/usr/bin/sudo","/sbin/rmmod", "-f", s, NULL };
                 int r = execv(args[0],args);
                 fprintf(stderr,"SHOULD NEVER REACH HERE %d\n",r);
+		exit(1);
         }
         //master
         waitpid(pid,NULL,0);
@@ -77,6 +78,7 @@ void load_module(char *s ) {
                 char * args[] = { "/usr/bin/sudo", "/sbin/modprobe", s, NULL };
                 int r = execv(args[0],args);
                 fprintf(stderr,"SHOULD NEVER REACH HERE %d\n",r);
+		exit(1);
         }
         //master
         waitpid(pid,NULL, 0);
@@ -113,6 +115,7 @@ float dark_level(char * fn) {
 		char * args[] = { "/usr/bin/convert" , fn, "-format" , "\%[mean]" , "info:", NULL};
 		int r = execv(args[0],args);
 		fprintf(stderr,"SHOULD NEVER REACH HERE %d\n",r);
+		exit(1);
 	}
 	close(pipefd[1]);
 	//get the RMSE
@@ -148,6 +151,7 @@ float rmse_pictures(char * fn1,char * fn2) {
 		char * args[] = { "/usr/bin/compare", "-fuzz",  "5", "-metric",  "RMSE" , fn1,  fn2,  "/dev/null", NULL};
 		int r = execv(args[0],args);
 		fprintf(stderr,"SHOULD NEVER REACH HERE %d\n",r);
+		exit(1);
 	}
 	close(pipefd[1]);
 	//get the RMSE
@@ -193,6 +197,7 @@ int take_picture(char * fn, char * fn_small) {
 				"--no-info","--no-banner","--no-timestamp","--quiet",fn, "--scale", "320x240" ,fn_small, NULL };
 			int r = execv(args[0],args);
 			fprintf(stderr,"SHOULD NEVER REACH HERE %d\n",r);
+			exit(1);
 		}
 		//master
 		waitpid(pid,NULL,0);
@@ -223,6 +228,7 @@ int crop_picture(char * fn, char * fnout) {
 			char * args[] = { "/usr/bin/convert",fn,"-gravity", "Center", "-crop", "80%", fnout, NULL };
 			int r = execv(args[0],args);
 			fprintf(stderr,"SHOULD NEVER REACH HERE %d\n",r);
+			exit(1);
 		}
 		//master
 		waitpid(pid,NULL,0);
@@ -250,6 +256,7 @@ int blur_picture(char * fn, char * fnout) {
 			char * args[] = { "/usr/bin/convert",fn,"-despeckle", fnout, NULL };
 			int r = execv(args[0],args);
 			fprintf(stderr,"SHOULD NEVER REACH HERE %d\n",r);
+			exit(1);
 		}
 		//master
 		waitpid(pid,NULL,0);
@@ -283,6 +290,7 @@ int downsample_picture(char * fn, char * fndown) {
 			char * args[] = { "/usr/bin/convert",fn,"-resize","50%", fndown, NULL };
 			int r = execv(args[0],args);
 			fprintf(stderr,"SHOULD NEVER REACH HERE %d\n",r);
+			exit(1);
 		}
 		//master
 		waitpid(pid,NULL,0);
@@ -355,9 +363,10 @@ int check_for_dog(char * fn , char * fndown) {
 		int pid=fork();
 		if (pid==0) {
 			//child
-			char * args[] = { "/bin/bash","/home/pi/petbot-selfie/send_atos.sh",fn, pred_s, NULL };
+			char * args[] = { "/bin/bash","/home/pi/petbot-selfie/scripts/send_atos.sh",fn, pred_s, NULL };
 			int r = execv(args[0],args);
 			fprintf(stderr,"SHOULD NEVER REACH HERE %d\n",r);
+			exit(1);
 		}
 		return 1;
 	}
