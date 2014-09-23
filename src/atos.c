@@ -48,7 +48,6 @@ int layer;
 const char * predictorFileName;
 const char * imageFileName;
 
-
 void * networkHandle;
 void * predictor;
 
@@ -56,7 +55,6 @@ int release=0;
 int exit_now=0;
 sem_t stopped;
 sem_t running;
-
 
 void unload_module(char * s) {
         pid_t pid=fork();
@@ -349,7 +347,7 @@ int check_for_dog(char * fn , char * fndown) {
 	}	
 	
 	float pred = jpcnn_predict(predictor, predictions, predictionsLength);
-	fprintf(stdout,"Atos probability %f\n",pred);
+	//fprintf(stdout,"Atos probability %f\n",pred);
 
 	//next predict
 	if (release==1) {
@@ -403,21 +401,24 @@ void * analyze() {
 
 	int i=0;
 
-
+	//fprintf(stderr,"START MAIN LOOP\n");
 	//main loop
 	while (1>0) {
 		sem_wait(&running);
 		
 		
+		//fprintf(stderr,"START SECOND LOOP\n");
 		//detect-and-work loop
 		while (1>0) {
 			
 			if (release==1) {
 				break;
 			}
+			//fprintf(stderr,"START THIRD\n");
 	
 			//first picture
 			take_picture(currentImageFileName,currentImageFileNameSmall);
+			fprintf(stderr, "TAKE FIRST PIC\n");
 			//blur_picture_inplace(currentImageFileNameSmall);
 			//blur_picture_inplace(currentImageFileName);
 
@@ -436,15 +437,17 @@ void * analyze() {
 					break;
 				}	
 				//move current to previous
+				//fprintf(stderr, "RENAME PIC\n");
 				rename(currentImageFileName,previousImageFileName);
 				rename(currentImageFileNameSmall,previousImageFileNameSmall);
 		
 				//get current picture
+				//fprintf(stderr, "TAKE PIC\n");
 				take_picture(currentImageFileName,currentImageFileNameSmall);
 
 				//check darkness level
 				float darkness = dark_level(currentImageFileNameSmall);
-			//	fprintf(stderr,"DARK %f\n", darkness);
+				fprintf(stderr,"DARK %f\n", darkness);
 				if (darkness<MIN_DARK_LEVEL) {	
 					if (i%100==0) {
 						time_t rawtime;
@@ -463,6 +466,7 @@ void * analyze() {
 				//blur_picture_inplace(currentImageFileNameSmall);
 				//blur_picture_inplace(currentImageFileName);
 				//if no motion the wait a bit
+				//fprintf(stderr, "WAIT PIC\n");
 				if (motion<=0) {
 					busy_wait(WAIT_TIME);
 				} else {
@@ -474,6 +478,7 @@ void * analyze() {
 				}
 			
 				//compare
+				//fprintf(stderr, "RMSE PIC\n");
 				float rmse = rmse_pictures(currentImageFileNameSmall,previousImageFileNameSmall);
 				//fprintf(stderr,"RMSE is %f\n",rmse);
 
@@ -484,24 +489,37 @@ void * analyze() {
 					//int check = check_for_dog(currentImageFileName,currentImageFileNameSmall);	
 					int check=0;
 					if (i%2==0) {
+						//fprintf(stderr, "CHECK1 \n");
 						check = check_for_dog(currentImageFileName,currentImageFileNameSmall);	
 					} else {
+						//fprintf(stderr, "CHECK2 \n");
 						char cropped_filename[1024];
 						sprintf(cropped_filename,"%s_cropped.jpg",currentImageFileNameSmall);
+						//fprintf(stderr, "CHECK3 \n");
 						crop_picture(currentImageFileNameSmall,cropped_filename);
 						check = check_for_dog(currentImageFileName,cropped_filename);	
 						unlink(cropped_filename);
 					}
+					//fprintf(stderr, "DONE RMSE\n");
 					if (check==1) {
+						//fprintf(stderr, "CHECK WAIT DONE \n");
 						busy_wait(LONG_WAIT_TIME);
 					}
 				}
 			}
+			fprintf(stderr,"LOOPA\n");
 		}
+		fprintf(stderr,"LOOPB\n");
 		if (exit_now==1) {
+			fprintf(stderr,"TRYING TO EXIT\n");
 			break;
 		}
-	  	sem_post(&stopped);
+		fprintf(stderr,"POST TO STOPPED\n");
+	  	int r = sem_post(&stopped);
+		if (r<0) {
+			fprintf(stderr,"Failed to post to semaphore\n");
+			exit(1);
+		}
 
   	}
 
@@ -531,9 +549,16 @@ int main(int argc, const char * argv[]) {
   imageFileName=argv[4];
 
 
-        sem_init(&stopped,0,0);
-        sem_init(&running,0,0);
-
+        int r = sem_init(&stopped,0,0);
+	if (r<0) {
+		fprintf(stderr,"SEMAPHORE ERROR!\n");
+		exit(1);
+	}
+        r=  sem_init(&running,0,0);
+	if (r<0) {
+		fprintf(stderr,"SEMAPHORE ERROR2!\n");
+		exit(1);
+	}
         pthread_t analyze_thread;
         int  iret1;
 
@@ -558,30 +583,43 @@ int main(int argc, const char * argv[]) {
 		if (strcmp(buffer,"STOP")==0) {
 			if (release==1) {
 				//hmmmm	
+				fprintf(stderr,"WAITING ON STOP - OOPS\n");	
 			} else {
 				release=1;
+				fprintf(stderr,"WAITING ON STOP\n");	
 				sem_wait(&stopped); //wait for other guy to stop
 				//when here other guy is stopped
-				fprintf(stdout,"STOPPED\n");	
 			}
+			fprintf(stderr,"STOPPED\n");	
+			fprintf(stdout,"STOPPED\n");
+			fflush(stdout);	
 		} else if (strcmp(buffer,"GO")==0) {
 			if (release==0) {
-
+				//fprintf(stderr,"NO GO, ALREADY GOING\n");	
 			} else {
 				release=0;	
+				//fprintf(stderr,"STARTING GO\n");
 				sem_post(&running);
 			}	
 		} else if (strcmp(buffer,"EXIT")==0) {
 			exit_now=1;
-			if (release==1) {
+			release=1;
+			/*if (release==1) {
 				//hmmmm	
+				fprintf(stdout,"STOPPED?\n");
 			} else {
 				release=1;
-				sem_wait(&stopped); //wait for other guy to stop
+				fprintf(stdout,"WAIT STOPPED\n");	
 				//when here other guy is stopped
-				fprintf(stdout,"STOPPED\n");	
-			}
+			}*/
+			//fprintf(stderr,"WAITING TO EXIT\n");
+			sem_post(&running);
+			sem_wait(&stopped); //wait for other guy to stop
+			fprintf(stdout,"EXITING\n");
+			fflush(stdout);	
 			return 0;
+		} else {
+			fprintf(stderr,"NO MATCH!!\n");
 		}
 	}	
 
