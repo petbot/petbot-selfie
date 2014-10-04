@@ -20,6 +20,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <stdlib.h>
 #include <libjpcnn.h>
+#include <string.h>
 
 #define NETWORK_FILE_NAME "jetpac.ntwk"
 
@@ -48,15 +49,18 @@ int main(int argc, const char * argv[]) {
     return 1;
   }
 
-  void * predictor = jpcnn_load_predictor(predictorFileName);
-  if (predictor==NULL) {
-	fprintf(stderr,"Failed to load predictor\n");
-	return 1;
+  void * predictor=NULL;
+  if (strcmp(predictorFileName,"-")!=0) {
+	  predictor = jpcnn_load_predictor(predictorFileName);
+	  if (predictor==NULL) {
+		fprintf(stderr,"Failed to load predictor\n");
+		return 1;
+	  }
   }
 
 
   int i=0;
-  for (i=0; i<15; i++) {
+  for (i=0; i<1; i++) {
   void * imageHandle = jpcnn_create_image_buffer_from_file(imageFileName);
   if (imageHandle == NULL) {
     fprintf(stderr, "DeepBeliefSDK: Couldn't load image file '%s'\n", imageFileName);
@@ -66,8 +70,18 @@ int main(int argc, const char * argv[]) {
 
 
   jpcnn_classify_image(networkHandle, imageHandle, 0, layer, &predictions, &predictionsLength, &predictionsLabels, &predictionsLabelsLength);
-  float pred = jpcnn_predict(predictor, predictions, predictionsLength);
-  fprintf(stdout,"%f\n",pred);
+  if (strcmp(predictorFileName,"-")!=0) {
+  	float pred = jpcnn_predict(predictor, predictions, predictionsLength);
+  	fprintf(stdout,"%f\n",pred);
+  } else {
+	int index;
+	  for (index = 0; index < predictionsLength; index += 1) {
+    float predictionValue;
+    char* label = predictionsLabels[index];
+    predictionValue = predictions[index];
+    fprintf(stdout, "%d\t%f\t%s\n", index, predictionValue, label);
+  }
+  }
   jpcnn_destroy_image_buffer(imageHandle);
   }
   jpcnn_destroy_predictor(predictor);

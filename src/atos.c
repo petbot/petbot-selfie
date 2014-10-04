@@ -49,7 +49,7 @@ const char * predictorFileName;
 const char * imageFileName;
 
 void * networkHandle;
-void * predictor;
+//void * predictor;
 
 int release=0;
 int exit_now=0;
@@ -346,7 +346,9 @@ int check_for_dog(char * fn , char * fndown) {
 		return 0;
 	}	
 	
-	float pred = jpcnn_predict(predictor, predictions, predictionsLength);
+	//float pred = jpcnn_predict(predictor, predictions, predictionsLength);
+	float pred = predictions[0];
+	fprintf(stderr,"prediction %f %s\n",predictions[0],predictionsLabels[0]);
 	//fprintf(stdout,"Atos probability %f\n",pred);
 
 	//next predict
@@ -392,12 +394,12 @@ void * analyze() {
 		fprintf(stderr, "DeepBeliefSDK: Couldn't load network file '%s'\n", networkFileName);
 		return NULL;
 	}
-	fprintf(stderr,"Loading predictor %s\n",predictorFileName);
+	/*fprintf(stderr,"Loading predictor %s\n",predictorFileName);
 	predictor = jpcnn_load_predictor(predictorFileName);
 	if (predictor==NULL) {
 		fprintf(stderr,"Failed to load predictor\n");
 		return NULL;
-	}
+	}*/
 
 	int i=0;
 
@@ -523,8 +525,8 @@ void * analyze() {
 
   	}
 
-	fprintf(stderr, "Cleaning up predictor...\n");
-	jpcnn_destroy_predictor(predictor);
+	//fprintf(stderr, "Cleaning up predictor...\n");
+	//jpcnn_destroy_predictor(predictor);
 	fprintf(stderr,"Cleaning up network...\n");
 	jpcnn_destroy_network(networkHandle);
 	sem_post(&stopped);
@@ -538,15 +540,15 @@ int main(int argc, const char * argv[]) {
   
 
 
-  if (argc!=5) {
-	fprintf(stderr,"%s network_filename layer svm_filename img_filename\n",argv[0]);
+  if (argc!=4) {
+	fprintf(stderr,"%s network_filename layer img_filename\n",argv[0]);
 	exit(1);
   }
 
   networkFileName=argv[1];
   layer = atoi(argv[2]);
-  predictorFileName=argv[3];
-  imageFileName=argv[4];
+  //predictorFileName=argv[3];
+  imageFileName=argv[3];
 
 
         int r = sem_init(&stopped,0,0);
