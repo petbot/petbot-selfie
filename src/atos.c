@@ -31,15 +31,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
        #include <fcntl.h>
 #include <time.h>
 
-#define WAIT_TIME 5
+#define WAIT_TIME 0
 #define LONG_WAIT_TIME 15000
 
 #define MIN_DARK_LEVEL 12000
-#define WAIT_TIME_DARK 10
+#define WAIT_TIME_DARK 4
 
 #define RMSE_THRESHOLD	1800
-
-void busy_wait(int s);
 
 float* predictions;
 int predictionsLength;
@@ -202,14 +200,10 @@ int take_picture(char * fn, char * fn_small) {
 	unlink(fn); //remove the file if it exists
 	int i=0;
 	while ( access( fn, F_OK ) == -1 ) {
-		fprintf(stderr,"trying to take picture\n");
 		if (i>0) {
-			//sleep(1); //give it a little rest if we cant get picture
+			sleep(1); //give it a little rest if we cant get picture
 			if (i%4==0) {
 				reload_uvc();			
-			}
-			if (i>10) {
-				busy_wait(3);	
 			}
 		} 
 		if (release==1) {
