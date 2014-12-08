@@ -39,6 +39,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define RMSE_THRESHOLD	1800
 
+void busy_wait(int s);
+
 float* predictions;
 int predictionsLength;
 char** predictionsLabels;
@@ -205,6 +207,9 @@ int take_picture(char * fn, char * fn_small) {
 			//sleep(1); //give it a little rest if we cant get picture
 			if (i%4==0) {
 				reload_uvc();			
+			}
+			if (i>10) {
+				busy_wait(3);	
 			}
 		} 
 		if (release==1) {
