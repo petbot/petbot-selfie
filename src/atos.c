@@ -31,11 +31,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
        #include <fcntl.h>
 #include <time.h>
 
-#define WAIT_TIME 2
+#define WAIT_TIME 5
 #define LONG_WAIT_TIME 15000
 
 #define MIN_DARK_LEVEL 12000
-#define WAIT_TIME_DARK 4
+#define WAIT_TIME_DARK 10
 
 #define RMSE_THRESHOLD	1800
 
@@ -51,12 +51,29 @@ const char * imageFileName;
 void * networkHandle;
 //void * predictor;
 
+
+struct timespec now, tmstart;
+
 int release=0;
 int exit_now=0;
 sem_t stopped;
 sem_t running;
 
+double seconds;
+
+void start_time(char * s) {
+	clock_gettime(CLOCK_REALTIME, &tmstart);
+	fprintf(stderr,"%s\n",s);
+	seconds = (double)((now.tv_sec+now.tv_nsec*1e-9) - (double)(tmstart.tv_sec+tmstart.tv_nsec*1e-9));
+}
+void stop_time(char * s) {
+	clock_gettime(CLOCK_REALTIME, &tmstart);
+	double seconds_now = (double)((now.tv_sec+now.tv_nsec*1e-9) - (double)(tmstart.tv_sec+tmstart.tv_nsec*1e-9));
+	fprintf(stderr,"%s - %lf\n",s,seconds_now-seconds);
+}
+
 void unload_module(char * s) {
+	start_time("Unload modules");
         pid_t pid=fork();
         if (pid==0) {
                 //child
@@ -67,9 +84,11 @@ void unload_module(char * s) {
         }
         //master
         waitpid(pid,NULL,0);
+	stop_time("Unload modules - Done");
 }
 
 void load_module(char *s ) {
+	start_time("Load modules");
         pid_t pid=fork();
         if (pid==0) {
                 //child
@@ -80,6 +99,7 @@ void load_module(char *s ) {
         }
         //master
         waitpid(pid,NULL, 0);
+	stop_time("Load modules - Done");
 }
 
 void reload_uvc() {
@@ -98,6 +118,7 @@ void reload_uvc() {
 
 float dark_level(char * fn) {
 	//fswebcam here
+	start_time("Dark level");
 	int pipefd[2];
 	if (pipe(pipefd)==-1) {
 		fprintf(stderr,"ERROR IN PIPE CREATE\n");
@@ -129,11 +150,13 @@ float dark_level(char * fn) {
 	//master
 	waitpid(pid,NULL,0);	
 	close(pipefd[0]);
+	stop_time("Dark level - done");
 	return darkness;
 }
 
 float rmse_pictures(char * fn1,char * fn2) {
 	//fswebcam here
+	start_time("RMSE start");
 	int pipefd[2];
 	if (pipe(pipefd)==-1) {
 		fprintf(stderr,"ERROR IN PIPE CREATE\n");
@@ -165,18 +188,21 @@ float rmse_pictures(char * fn1,char * fn2) {
 	//master
 	waitpid(pid,NULL,0);	
 	close(pipefd[0]);
+	stop_time("RMSE - Done");
 	return rmse;
 }
 
 
 
 int take_picture(char * fn, char * fn_small) {
+	start_time("Take picture");
 	//fswebcam here
 	unlink(fn); //remove the file if it exists
 	int i=0;
 	while ( access( fn, F_OK ) == -1 ) {
+		fprintf(stderr,"trying to take picture\n");
 		if (i>0) {
-			sleep(1); //give it a little rest if we cant get picture
+			//sleep(1); //give it a little rest if we cant get picture
 			if (i%4==0) {
 				reload_uvc();			
 			}
@@ -201,6 +227,7 @@ int take_picture(char * fn, char * fn_small) {
 		waitpid(pid,NULL,0);
 		i++;	
 	}
+	stop_time("Take picture done\n");
 	return 0;
 }
 
@@ -209,6 +236,7 @@ int take_picture(char * fn, char * fn_small) {
 
 int crop_picture(char * fn, char * fnout) {
 	//fswebcam here
+	start_time("crop picture");
 	unlink(fnout); //remove the file if it exists
 	int i=0;
 	while ( access( fnout, F_OK ) == -1 ) {
@@ -232,11 +260,13 @@ int crop_picture(char * fn, char * fnout) {
 		waitpid(pid,NULL,0);
 		i++;	
 	}
+	stop_time("Crop picture - done");
 	return 0;
 }
 
 int blur_picture(char * fn, char * fnout) {
 	//fswebcam here
+	start_time("Blur picture");
 	unlink(fnout); //remove the file if it exists
 	int i=0;
 	while ( access( fnout, F_OK ) == -1 ) {
@@ -260,6 +290,7 @@ int blur_picture(char * fn, char * fnout) {
 		waitpid(pid,NULL,0);
 		i++;	
 	}
+	stop_time("Blur picture - done");
 	return 0;
 }
 
@@ -272,6 +303,7 @@ int blur_picture_inplace(char *fn) {
 
 int downsample_picture(char * fn, char * fndown) {
 	//fswebcam here
+	start_time("Downsample picture");
 	unlink(fndown); //remove the file if it exists
 	int i=0;
 	while ( access( fndown, F_OK ) == -1 ) {
@@ -294,6 +326,7 @@ int downsample_picture(char * fn, char * fndown) {
 		waitpid(pid,NULL,0);
 		i++;	
 	}
+	stop_time("Down sample picture - done");
 	return 0;
 }
 
@@ -450,6 +483,10 @@ void * analyze() {
 				//check darkness level
 				float darkness = dark_level(currentImageFileNameSmall);
 				fprintf(stderr,"DARK %f\n", darkness);
+				busy_wait(WAIT_TIME);
+				if (release==1) {
+					break;
+				}	
 				if (darkness<MIN_DARK_LEVEL) {	
 					if (i%100==0) {
 						time_t rawtime;
