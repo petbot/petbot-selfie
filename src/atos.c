@@ -31,11 +31,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
        #include <fcntl.h>
 #include <time.h>
 
-#define WAIT_TIME 0
+#define WAIT_TIME 5
 #define LONG_WAIT_TIME 15000
 
 #define MIN_DARK_LEVEL 12000
-#define WAIT_TIME_DARK 4
+#define WAIT_TIME_DARK 5
 
 #define RMSE_THRESHOLD	1800
 
