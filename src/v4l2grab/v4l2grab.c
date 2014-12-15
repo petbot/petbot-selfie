@@ -699,10 +699,12 @@ static void deviceInit(void)
     
     /* Attempt to set the frame interval. */
     frameint.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    //fprintf(stderr,"FPS %d %d\n", frameint.parm.capture.timeperframe.numerator, frameint.parm.capture.timeperframe.denominator);
     frameint.parm.capture.timeperframe.numerator = 1;
     frameint.parm.capture.timeperframe.denominator = fps;
     if (-1 == xioctl(fd, VIDIOC_S_PARM, &frameint))
       fprintf(stderr,"Unable to set frame interval.\n");
+    //fprintf(stderr,"FPS2 %d %d\n", frameint.parm.capture.timeperframe.numerator, frameint.parm.capture.timeperframe.denominator);
   }
 
 	/* Buggy driver paranoia. */
