@@ -202,6 +202,7 @@ int take_picture(char * fn, char * fn_small) {
 	unlink(fn); //remove the file if it exists
 	int i=0;
 	while ( release!=1 && access( fn, F_OK ) == -1 ) {
+		fprintf(stderr,"LOOP %d\n", i);
 		if (i>0) {
 			sleep(1); //give it a little rest if we cant get picture
 			if (i%4==0) {
@@ -211,12 +212,18 @@ int take_picture(char * fn, char * fn_small) {
 		if (release==1) {
 			break;
 		}
+		int filedes[2];
+		if (pipe(filedes) == -1) {
+		  perror("pipe");
+		  continue;
+		}
 		pid_t pid=fork();
 		if (pid==0) {
 			//child
 			int devNull = open("/dev/null", O_WRONLY);
 			dup2(devNull,2);
-			dup2(devNull,1);
+			dup2(filedes[1],1); //send stdout to parent
+			close(filedes[0]);//close reading end of parent pipe
 			//TODO make sure acquired image file
 			/*char * args[] = { "/usr/bin/fswebcam","-r","640x480","--skip","5",
 				"--no-info","--no-banner","--no-timestamp","--quiet",fn, "--scale", "320x240" ,fn_small, NULL };*/
@@ -224,6 +231,21 @@ int take_picture(char * fn, char * fn_small) {
 			int r = execv(args[0],args);
 			fprintf(stderr,"SHOULD NEVER REACH HERE %d\n",r);
 			exit(1);
+		}
+		close(filedes[1]); //close the writting part of the pipe
+		fd_set          set;
+		struct          timeval timeout;
+		FD_ZERO(&set);
+		timeout.tv_sec = 1;
+		timeout.tv_usec = 0;
+		FD_SET(filedes[0], &set);
+		if (select(filedes[0]+1, &set, NULL,  NULL, &timeout)==0) {
+			//timeout occured
+			fprintf(stderr,"TIMEOUT OCCURED\n");
+			kill(pid, SIGKILL);
+			unlink(fn); //remove the file if it exists
+		} else {
+			fprintf(stderr,"NO TIMEOUT\n");
 		}
 		//master
 		waitpid(pid,NULL,0);
