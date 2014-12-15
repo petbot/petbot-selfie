@@ -1,3 +1,6 @@
 gcc -o atos atos.c  -L/usr/lib -ljpcnn -lpthread -Wall -O3 -lrt
 gcc -o train train.c  -L/usr/lib -ljpcnn -lpthread -Wall -O3
 gcc -o load load.c  -L/usr/lib -ljpcnn -lpthread -Wall -O3
+cd v4l2grab
+sh build.sh
+cd ..
