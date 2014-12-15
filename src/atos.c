@@ -247,6 +247,7 @@ int take_picture(char * fn, char * fn_small) {
 		} else {
 			fprintf(stderr,"NO TIMEOUT\n");
 		}
+		close(filedes[0]);
 		//master
 		waitpid(pid,NULL,0);
 		i++;
