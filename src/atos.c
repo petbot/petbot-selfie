@@ -61,6 +61,8 @@ sem_t running;
 
 double seconds;
 
+int downsample_picture(char * fn, char * fndown) ;
+
 void start_time(char * s) {
 	clock_gettime(CLOCK_REALTIME, &tmstart);
 	fprintf(stderr,"%s\n",s);
@@ -199,7 +201,7 @@ int take_picture(char * fn, char * fn_small) {
 	//fswebcam here
 	unlink(fn); //remove the file if it exists
 	int i=0;
-	while ( access( fn, F_OK ) == -1 ) {
+	while ( release!=1 && access( fn, F_OK ) == -1 ) {
 		if (i>0) {
 			sleep(1); //give it a little rest if we cant get picture
 			if (i%4==0) {
@@ -216,8 +218,29 @@ int take_picture(char * fn, char * fn_small) {
 			dup2(devNull,2);
 			dup2(devNull,1);
 			//TODO make sure acquired image file
-			char * args[] = { "/usr/bin/fswebcam","-r","640x480","--skip","5",
-				"--no-info","--no-banner","--no-timestamp","--quiet",fn, "--scale", "320x240" ,fn_small, NULL };
+			/*char * args[] = { "/usr/bin/fswebcam","-r","640x480","--skip","5",
+				"--no-info","--no-banner","--no-timestamp","--quiet",fn, "--scale", "320x240" ,fn_small, NULL };*/
+			char * args[] = { "/home/pi/petbot-selfie/src/v4l2grab/v4l2grab","-o",fn,NULL};
+			int r = execv(args[0],args);
+			fprintf(stderr,"SHOULD NEVER REACH HERE %d\n",r);
+			exit(1);
+		}
+		//master
+		waitpid(pid,NULL,0);
+		i++;
+	}
+	downsample_picture(fn, fn_small);
+	/*while ( release!=1 && access( fn_small, F_OK ) == -1 ) {
+		pid_t pid=fork();
+		if (pid==0) {
+			//child
+			int devNull = open("/dev/null", O_WRONLY);
+			dup2(devNull,2);
+			dup2(devNull,1);
+			//TODO make sure acquired image file
+			//char * args[] = { "/usr/bin/fswebcam","-r","640x480","--skip","5",
+			//	"--no-info","--no-banner","--no-timestamp","--quiet",fn, "--scale", "320x240" ,fn_small, NULL };
+			char * args[] = { "/home/pi/petbot-selfie/src/v4l2grab/v4l2grab","-W","320","-H","240","-o",fn_small,NULL};
 			int r = execv(args[0],args);
 			fprintf(stderr,"SHOULD NEVER REACH HERE %d\n",r);
 			exit(1);
@@ -225,7 +248,7 @@ int take_picture(char * fn, char * fn_small) {
 		//master
 		waitpid(pid,NULL,0);
 		i++;	
-	}
+	}*/
 	stop_time("Take picture done\n");
 	return 0;
 }
