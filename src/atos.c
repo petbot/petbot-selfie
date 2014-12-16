@@ -54,6 +54,8 @@ void * networkHandle;
 
 struct timespec now, tmstart;
 
+int time_to_wait=0;
+
 int release=0;
 int exit_now=0;
 sem_t stopped;
@@ -105,7 +107,7 @@ void load_module(char *s ) {
 }
 
 void reload_uvc() {
-        fprintf(stderr,"remogin\n");
+        fprintf(stderr,"Reload UVC modules\n");
         unload_module("uvcvideo");
         unload_module("videobuf2_core");
         unload_module("videobuf2_vmalloc");
@@ -114,7 +116,7 @@ void reload_uvc() {
         load_module("videobuf2_core");
         load_module("videobuf2_vmalloc");
         load_module("uvcvideo");
-        fprintf(stderr,"Loaded UVC\n");
+        fprintf(stderr,"Reloaded UVC\n");
         return;
 }
 
@@ -245,7 +247,7 @@ int take_picture(char * fn, char * fn_small) {
 			kill(pid, SIGKILL);
 			unlink(fn); //remove the file if it exists
 		} else {
-			fprintf(stderr,"NO TIMEOUT\n");
+			//fprintf(stderr,"NO TIMEOUT\n");
 		}
 		close(filedes[0]);
 		//master
@@ -376,16 +378,26 @@ int downsample_picture(char * fn, char * fndown) {
 }
 
 
-void busy_wait(int s) {
+
+int busy_wait(int s) {
+	int x=0;
 	while (s>0) {
 		sleep(1);
+		x++;
 		if (release==1) {
-			return;
+			return x;
 		}
 		s--;
 	}
+	return x;
 }
 
+void long_wait(int s) {
+	time_to_wait+=s;
+	fprintf(stderr,"Need to wait %d more seconds\n", time_to_wait);
+	time_to_wait-=busy_wait(time_to_wait);	
+	//fprintf(stderr,"Need to wait %d more seconds 2\n", time_to_wait);
+}
 
 
 int check_for_dog(char * fn , char * fndown) {
@@ -434,8 +446,29 @@ int check_for_dog(char * fn , char * fndown) {
 		return 0;
 	}	
 
+
+	//read in sensitivity
+	double sensitivity=0.3;
+	char * sensitivity_fn="/home/pi/sensitivity";
+	if ( access( fn, F_OK ) != -1 ) {
+		//have a sensitivity file lets use that
+		char buffer[128];
+		FILE * fptr=fopen(sensitivity_fn,"r");
+		if (fptr==NULL) {
+			fprintf(stderr,"error opening sensitivity file %s\n", sensitivity_fn);
+		} else {
+			fread(buffer, 1, 128, fptr);
+			double x =atof(buffer);
+			if (x<=1.0 && x>0.0) {
+				sensitivity=x;
+			}
+		}
+	}
+	fprintf(stderr,"Sensitivity threshold is %lf\n",sensitivity);
+	
+
 	//next send out the image if it passes
-	if (pred>0.3) {
+	if (pred>sensitivity) {
 		char pred_s[1024];
 		sprintf(pred_s,"%0.4f", pred);
 		int pid=fork();
@@ -485,6 +518,12 @@ void * analyze() {
 	//main loop
 	while (1>0) {
 		sem_wait(&running);
+		while (time_to_wait>0) {
+			long_wait(0);
+			if (release==1) {
+				break;
+			}
+		}
 		
 		
 		//fprintf(stderr,"START SECOND LOOP\n");
@@ -587,7 +626,8 @@ void * analyze() {
 					//fprintf(stderr, "DONE RMSE\n");
 					if (check==1) {
 						//fprintf(stderr, "CHECK WAIT DONE \n");
-						busy_wait(LONG_WAIT_TIME);
+						//busy_wait(LONG_WAIT_TIME);
+						long_wait(LONG_WAIT_TIME);
 					}
 				}
 			}
@@ -659,6 +699,7 @@ int main(int argc, const char * argv[]) {
 
 	//monitor STDIN/ STDOUT
 	char buffer[1024];
+	int i=0;
 	while (1>0) {
 		fgets(buffer, 1024, stdin);
 		if (strlen(buffer)>0 ) {
@@ -685,7 +726,7 @@ int main(int argc, const char * argv[]) {
 				//fprintf(stderr,"STARTING GO\n");
 				sem_post(&running);
 			}	
-		} else if (strcmp(buffer,"EXIT")==0) {
+		} else if (i>10 || strcmp(buffer,"EXIT")==0) {
 			exit_now=1;
 			release=1;
 			/*if (release==1) {
@@ -704,6 +745,7 @@ int main(int argc, const char * argv[]) {
 			return 0;
 		} else {
 			fprintf(stderr,"NO MATCH!!\n");
+			i++;
 		}
 	}	
 
