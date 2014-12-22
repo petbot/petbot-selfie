@@ -39,6 +39,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define RMSE_THRESHOLD	1800
 
+int atos_pid=0;
+
 float* predictions;
 int predictionsLength;
 char** predictionsLabels;
@@ -71,7 +73,7 @@ void start_time(char * s) {
 	seconds = (double)((now.tv_sec+now.tv_nsec*1e-9) - (double)(tmstart.tv_sec+tmstart.tv_nsec*1e-9));
 }
 void stop_time(char * s) {
-	clock_gettime(CLOCK_REALTIME, &tmstart);
+	clock_gettime(CLOCK_REALTIME, &now);
 	double seconds_now = (double)((now.tv_sec+now.tv_nsec*1e-9) - (double)(tmstart.tv_sec+tmstart.tv_nsec*1e-9));
 	fprintf(stderr,"%s - %lf\n",s,seconds_now-seconds);
 }
@@ -450,7 +452,7 @@ int check_for_dog(char * fn , char * fndown) {
 	//read in sensitivity
 	double sensitivity=0.3;
 	char * sensitivity_fn="/home/pi/sensitivity";
-	if ( access( fn, F_OK ) != -1 ) {
+	if ( access( sensitivity_fn, F_OK ) != -1 ) {
 		//have a sensitivity file lets use that
 		char buffer[128];
 		FILE * fptr=fopen(sensitivity_fn,"r");
@@ -479,6 +481,17 @@ int check_for_dog(char * fn , char * fndown) {
 			fprintf(stderr,"SHOULD NEVER REACH HERE %d\n",r);
 			exit(1);
 		}
+		atos_pid=pid;
+		while (pid>0 && waitpid(pid,NULL,WNOHANG)<=0) {
+			//next predict
+			if (release==1) {
+				kill(atos_pid, SIGKILL);
+				return 0;
+			}	
+			//lets wait for the kid
+			sleep(1);
+		}
+		
 		return 1;
 	}
 	return 0;
@@ -626,8 +639,25 @@ void * analyze() {
 					//fprintf(stderr, "DONE RMSE\n");
 					if (check==1) {
 						//fprintf(stderr, "CHECK WAIT DONE \n");
+						int long_wait_time=LONG_WAIT_TIME;
+						char * long_wait_time_fn="/home/pi/long_wait_time";
+						if ( access( long_wait_time_fn, F_OK ) != -1 ) {
+							//have a sensitivity file lets use that
+							char buffer[128];
+							FILE * fptr=fopen(long_wait_time_fn,"r");
+							if (fptr==NULL) {
+								fprintf(stderr,"error opening long wait time file %s\n", long_wait_time_fn);
+							} else {
+								fread(buffer, 1, 128, fptr);
+								int x =atoi(buffer);
+								if (x<=1.0 && x>0.0) {
+									long_wait_time=x;
+								}
+							}
+						}
 						//busy_wait(LONG_WAIT_TIME);
-						long_wait(LONG_WAIT_TIME);
+						fprintf(stderr,"waiting for %d\n", long_wait_time);
+						long_wait(long_wait_time);
 					}
 				}
 			}

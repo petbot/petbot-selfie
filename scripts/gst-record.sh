@@ -33,7 +33,7 @@ while [ "`du -sm $filename | awk '{print $1}'`" -lt 1 ]; do
 		exit
 	fi
 	echo Reloading ...
-	sudo /home/pi/petbot-selfie/scripts/reload.sh
+	#sudo /home/pi/petbot-selfie/scripts/reload.sh
 	retries=`expr $retries + 1`
 	if [ "$retries" -gt 8 ]; then
 		echo Failed to capture

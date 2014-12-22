@@ -1,4 +1,5 @@
 #!/bin/bash
+trap "kill 0" SIGINT SIGTERM EXIT
 
 selfie_clip=/dev/shm/petselfie.mov
 selfie_trigger=$1
