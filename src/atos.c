@@ -34,8 +34,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define WAIT_TIME 5
 #define LONG_WAIT_TIME 15000
 
-#define MIN_DARK_LEVEL 12000
-#define WAIT_TIME_DARK 5
+#define MIN_DARK_LEVEL 14000
+#define WAIT_TIME_DARK 60
 
 #define RMSE_THRESHOLD	1800
 
@@ -476,7 +476,8 @@ int check_for_dog(char * fn , char * fndown) {
 		int pid=fork();
 		if (pid==0) {
 			//child
-			char * args[] = { "/bin/bash","/home/pi/petbot-selfie/scripts/send_atos.sh",fn, pred_s, NULL };
+			//char * args[] = { "/bin/bash","/home/pi/petbot-selfie/scripts/send_atos.sh",fn, pred_s, NULL };
+			char * args[] = { "/usr/bin/python","/home/pi/petbot-selfie/scripts/capture-selfie.py",fn, pred_s, NULL };
 			int r = execv(args[0],args);
 			fprintf(stderr,"SHOULD NEVER REACH HERE %d\n",r);
 			exit(1);
