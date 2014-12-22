@@ -194,6 +194,7 @@ float rmse_pictures(char * fn1,char * fn2) {
 	//master
 	waitpid(pid,NULL,0);	
 	close(pipefd[0]);
+	fprintf(stderr,"RMSE IS %f\n",rmse);
 	stop_time("RMSE - Done");
 	return rmse;
 }
@@ -487,7 +488,7 @@ int check_for_dog(char * fn , char * fndown) {
 			//next predict
 			if (release==1) {
 				fprintf(stderr,"Sending kill to atos process\n");
-				kill(atos_pid, SIGKILL);
+				kill(atos_pid, SIGTERM);
 				return 0;
 			}	
 			//lets wait for the kid

@@ -7,8 +7,8 @@ import threading
 import atexit
 import signal
 from time import sleep 
-if len(sys.argv)!=2:
-	print "%s selfie_trigger" % sys.argv[0]
+if len(sys.argv)!=3:
+	print "%s selfie_trigger trigger_value" % sys.argv[0]
 	sys.exit(1)
 
 
@@ -44,11 +44,11 @@ def capture():
 	width=320
 	height=240
 	bitrate=500000
-	seconds=10
+	seconds=11
 	fn=selfie_clip
 	max_tries=5
 	tries=0
-	while capture.run and (os.path.isfile(fn)==False or os.stat(fn).st_size<200) and tries<max_tries:
+	while capture.run and (os.path.isfile(fn)==False or os.stat(fn).st_size<20) and tries<max_tries:
 		cmd ="/usr/bin/gst-launch-1.0 v4l2src do-timestamp=true num-buffers=%d io-mode=1 ! queue ! videorate ! video/x-raw, width=%d, height=%d, framerate=%d/1 ! gdkpixbufoverlay location=/home/pi/petbot-selfie/scripts/petbot_video_watermark.png offset-x=180 offset-y=180 ! omxh264enc target-bitrate=%d control-rate=variable ! h264parse ! qtmux dts-method=asc presentation-time=1 ! filesink location=%s" % (seconds*fps,width,height,fps,bitrate,fn)
 		capture.p = subprocess.Popen(cmd.split())
 		capture.p.wait()
@@ -73,12 +73,16 @@ def cleanup():
 
 
 def sound_and_treat():
-	sleep(0.5)
+	#wait while not recording
+	fn=selfie_clip
+	while (os.path.isfile(fn)==False or os.stat(fn).st_size<20) and capture.run:
+		sleep(0.1)
+	if not capture.run:
+		return
 	#play a sound
-	sound_p=subprocess.Popen(["/bin/sh", "/home/pi/petbot/play_sound.sh", "https://petbot.ca/static/sounds/mpu.mp3"])
+	sound_p=subprocess.Popen(["/bin/sh", "/home/pi/petbot/play_sound_local.sh", "/home/pi/petbot-selfie/mpu.mp3"])
 	sound_p.wait()
 	#drop a treat
-	sleep(1)
 	treat_p=subprocess.Popen(["/usr/bin/sudo","/home/pi/petbot/single_cookie/single_cookie","10"])
 	treat_p.wait()
 	
