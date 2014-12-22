@@ -485,6 +485,7 @@ int check_for_dog(char * fn , char * fndown) {
 		while (pid>0 && waitpid(pid,NULL,WNOHANG)<=0) {
 			//next predict
 			if (release==1) {
+				fprintf(stderr,"Sending kill to atos process\n");
 				kill(atos_pid, SIGKILL);
 				return 0;
 			}	

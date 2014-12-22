@@ -1,4 +1,5 @@
 #!/bin/bash
+trap 'kill -9 $(jobs -p)' SIGINT SIGTERM EXIT
 
 if [ $# -ne 4 ] ; then
 	echo $0 resolution bitrate seconds fileout
@@ -27,7 +28,8 @@ rm -f $filename
 touch $filename
 retries=0
 while [ "`du -sm $filename | awk '{print $1}'`" -lt 1 ]; do
-	/usr/bin/gst-launch-1.0 v4l2src do-timestamp=true num-buffers=`expr 30 \* $3` io-mode=1 ! queue ! videorate ! video/x-raw, width=$x, height=$y, framerate=30/1 ! gdkpixbufoverlay location=/home/pi/petbot-selfie/scripts/petbot_video_watermark.png offset-x=180 offset-y=180 ! omxh264enc target-bitrate=$bitrate control-rate=variable ! h264parse ! qtmux dts-method=asc presentation-time=1 ! filesink location=$filename
+	/usr/bin/gst-launch-1.0 v4l2src do-timestamp=true num-buffers=`expr 30 \* $3` io-mode=1 ! queue ! videorate ! video/x-raw, width=$x, height=$y, framerate=30/1 ! gdkpixbufoverlay location=/home/pi/petbot-selfie/scripts/petbot_video_watermark.png offset-x=180 offset-y=180 ! omxh264enc target-bitrate=$bitrate control-rate=variable ! h264parse ! qtmux dts-method=asc presentation-time=1 ! filesink location=$filename &
+	wait
 	if [ "`du -sm $filename | awk '{print $1}'`" -gt 0 ]; then
 		echo Captured ok!
 		exit
