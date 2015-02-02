@@ -160,7 +160,7 @@ float dark_level(char * fn) {
 	return darkness;
 }
 
-float rmse_pictures(char * fn1,char * fn2) {
+float rmse_pictures(char * fn1,char * fn2, char * metric) {
 	//fswebcam here
 	start_time("RMSE start");
 	int pipefd[2];
@@ -175,7 +175,8 @@ float rmse_pictures(char * fn1,char * fn2) {
 		close(pipefd[0]);
 		//child
 		dup2(pipefd[1],2);
-		char * args[] = { "/usr/bin/compare", "-fuzz",  "5", "-metric",  "RMSE" , fn1,  fn2,  "/dev/null", NULL};
+		char * args[] = { "/usr/bin/compare", "-fuzz",  "5", "-metric",  metric , fn1,  fn2,  "/dev/null", NULL};
+		//char * args[] = { "/usr/bin/compare", "-metric",  metric , fn1,  fn2,  "/dev/null", NULL};
 		int r = execv(args[0],args);
 		fprintf(stderr,"SHOULD NEVER REACH HERE %d\n",r);
 		exit(1);
@@ -589,15 +590,14 @@ void * analyze() {
 				float darkness = dark_level(currentImageFileNameSmall);
 				//fprintf(stderr,"DARK %f\n", darkness);
 				if (darkness<MIN_DARK_LEVEL) {	
-					if (i%100==0) {
-						time_t rawtime;
-						struct tm * timeinfo;
+					time_t rawtime;
+					struct tm * timeinfo;
 
-						time ( &rawtime );
-						timeinfo = localtime ( &rawtime );	
+					time ( &rawtime );
+					timeinfo = localtime ( &rawtime );	
 
-						fprintf(stdout, "Its dark.... %s \n", asctime (timeinfo));
-					}
+					fprintf(stdout, "Its dark.... %s \n", asctime (timeinfo));
+					
 					busy_wait(WAIT_TIME_DARK);
 					continue;
 				}
@@ -623,11 +623,10 @@ void * analyze() {
 			
 				//compare
 				//fprintf(stderr, "RMSE PIC\n");
-				//float rmse = rmse_pictures(currentImageFileNameSmall,previousImageFileNameSmall);
-				//fprintf(stderr,"RMSE is %f\n",rmse);
-				float rmse=0.0;
+				float rmse = rmse_pictures(currentImageFileNameSmall,previousImageFileNameSmall,"RMSE");
+				fprintf(stderr,"RMSE is %f\n",rmse);
 				//check for motion
-				if (1>0 || rmse>RMSE_THRESHOLD) {
+				if (rmse>RMSE_THRESHOLD || (rand() % 200)<3) { //with some random chance fire even if still
 					fprintf(stderr,"passed threshold moving on to detector...\n");;
 					motion=10;
 					//int check = check_for_dog(currentImageFileName,currentImageFileNameSmall);	
