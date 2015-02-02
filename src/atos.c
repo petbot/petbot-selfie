@@ -26,9 +26,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/wait.h>
 #include <pthread.h>
 #include <string.h>
-       #include <sys/types.h>
-       #include <sys/stat.h>
-       #include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <time.h>
 
 #define WAIT_TIME 5
@@ -68,7 +68,7 @@ double seconds;
 int downsample_picture(char * fn, char * fndown) ;
 
 void start_time(char * s) {
-	clock_gettime(CLOCK_REALTIME, &tmstart);
+	clock_gettime(CLOCK_REALTIME, &now);
 	fprintf(stderr,"%s\n",s);
 	seconds = (double)((now.tv_sec+now.tv_nsec*1e-9) - (double)(tmstart.tv_sec+tmstart.tv_nsec*1e-9));
 }
@@ -207,7 +207,7 @@ int take_picture(char * fn, char * fn_small) {
 	unlink(fn); //remove the file if it exists
 	int i=0;
 	while ( release!=1 && access( fn, F_OK ) == -1 ) {
-		fprintf(stderr,"LOOP %d\n", i);
+		//fprintf(stderr,"LOOP %d\n", i);
 		if (i>0) {
 			sleep(1); //give it a little rest if we cant get picture
 			if (i%4==0) {
@@ -277,7 +277,7 @@ int take_picture(char * fn, char * fn_small) {
 		waitpid(pid,NULL,0);
 		i++;	
 	}*/
-	stop_time("Take picture done\n");
+	stop_time("Take picture done");
 	return 0;
 }
 
@@ -403,7 +403,57 @@ void long_wait(int s) {
 }
 
 
-int check_for_dog(char * fn , char * fndown) {
+int do_a_selfie(char * fn , double pred) {
+	char pred_s[1024];
+	sprintf(pred_s,"%0.4f", pred);
+	int pid=fork();
+	if (pid==0) {
+		//child
+		//char * args[] = { "/bin/bash","/home/pi/petbot-selfie/scripts/send_atos.sh",fn, pred_s, NULL };
+		char * args[] = { "/usr/bin/python","/home/pi/petbot-selfie/scripts/capture-selfie.py",fn, pred_s, NULL };
+		int r = execv(args[0],args);
+		fprintf(stderr,"SHOULD NEVER REACH HERE %d\n",r);
+		exit(1);
+	}
+	atos_pid=pid;
+	while (pid>0 && waitpid(pid,NULL,WNOHANG)<=0) {
+		//next predict
+		if (release==1) {
+			fprintf(stderr,"Sending kill to atos process\n");
+			kill(atos_pid, SIGTERM);
+			return 0;
+		}	
+		//lets wait for the kid
+		sleep(1);
+	}
+	
+	return 1;
+}
+
+double get_sensitivity_threshold() {
+	//read in sensitivity
+	double sensitivity=0.3;
+	char * sensitivity_fn="/home/pi/sensitivity";
+	if ( access( sensitivity_fn, F_OK ) != -1 ) {
+		//have a sensitivity file lets use that
+		char buffer[128];
+		FILE * fptr=fopen(sensitivity_fn,"r");
+		if (fptr==NULL) {
+			fprintf(stderr,"error opening sensitivity file %s\n", sensitivity_fn);
+		} else {
+			fread(buffer, 1, 128, fptr);
+			double x =atof(buffer);
+			if (x<=1.0 && x>0.0) {
+				sensitivity=x;
+			}
+		}
+	}
+	fprintf(stderr,"Sensitivity threshold is %lf\n",sensitivity);
+	return sensitivity;
+
+}
+
+double check_for_dog(char * fn , char * fndown) {
 	if (release==1) {
 		return 0;
 	}	
@@ -419,7 +469,7 @@ int check_for_dog(char * fn , char * fndown) {
 	void * imageHandle = jpcnn_create_image_buffer_from_file(fndown);
 	//unlink(fndown); //remove the file if it exists TODO
 	if (imageHandle == NULL) {
-		fprintf(stderr, "DeepBeliefSDK: Couldn't load image file '%s'\n", fn);
+		fprintf(stderr, "DeepBeliefSDK: Couldn't load image file '%s'\n", fndown);
 		return 0;
 	}
 
@@ -449,55 +499,8 @@ int check_for_dog(char * fn , char * fndown) {
 		return 0;
 	}	
 
+	return pred;	
 
-	//read in sensitivity
-	double sensitivity=0.3;
-	char * sensitivity_fn="/home/pi/sensitivity";
-	if ( access( sensitivity_fn, F_OK ) != -1 ) {
-		//have a sensitivity file lets use that
-		char buffer[128];
-		FILE * fptr=fopen(sensitivity_fn,"r");
-		if (fptr==NULL) {
-			fprintf(stderr,"error opening sensitivity file %s\n", sensitivity_fn);
-		} else {
-			fread(buffer, 1, 128, fptr);
-			double x =atof(buffer);
-			if (x<=1.0 && x>0.0) {
-				sensitivity=x;
-			}
-		}
-	}
-	fprintf(stderr,"Sensitivity threshold is %lf\n",sensitivity);
-	
-
-	//next send out the image if it passes
-	if (pred>sensitivity) {
-		char pred_s[1024];
-		sprintf(pred_s,"%0.4f", pred);
-		int pid=fork();
-		if (pid==0) {
-			//child
-			//char * args[] = { "/bin/bash","/home/pi/petbot-selfie/scripts/send_atos.sh",fn, pred_s, NULL };
-			char * args[] = { "/usr/bin/python","/home/pi/petbot-selfie/scripts/capture-selfie.py",fn, pred_s, NULL };
-			int r = execv(args[0],args);
-			fprintf(stderr,"SHOULD NEVER REACH HERE %d\n",r);
-			exit(1);
-		}
-		atos_pid=pid;
-		while (pid>0 && waitpid(pid,NULL,WNOHANG)<=0) {
-			//next predict
-			if (release==1) {
-				fprintf(stderr,"Sending kill to atos process\n");
-				kill(atos_pid, SIGTERM);
-				return 0;
-			}	
-			//lets wait for the kid
-			sleep(1);
-		}
-		
-		return 1;
-	}
-	return 0;
 }
 
 
@@ -509,10 +512,12 @@ void * analyze() {
 	char currentImageFileNameSmall[1024];
 	char previousImageFileName[1024];
 	char previousImageFileNameSmall[1024];
+	char blurImageFileName[1024];
 	sprintf(currentImageFileName,"%s_current.jpg",imageFileName);
 	sprintf(currentImageFileNameSmall,"%s_current_small.jpg",imageFileName);
 	sprintf(previousImageFileName,"%s_previous.jpg",imageFileName);
 	sprintf(previousImageFileNameSmall,"%s_previous_small.jpg",imageFileName);
+	sprintf(blurImageFileName,"%s_blur.jpg",imageFileName);
 
 
 	fprintf(stderr,"Loading network %s\n",networkFileName);
@@ -553,7 +558,7 @@ void * analyze() {
 	
 			//first picture
 			take_picture(currentImageFileName,currentImageFileNameSmall);
-			fprintf(stderr, "TAKE FIRST PIC\n");
+			//fprintf(stderr, "TAKE FIRST PIC\n");
 			//blur_picture_inplace(currentImageFileNameSmall);
 			//blur_picture_inplace(currentImageFileName);
 
@@ -582,11 +587,7 @@ void * analyze() {
 
 				//check darkness level
 				float darkness = dark_level(currentImageFileNameSmall);
-				fprintf(stderr,"DARK %f\n", darkness);
-				busy_wait(WAIT_TIME);
-				if (release==1) {
-					break;
-				}	
+				//fprintf(stderr,"DARK %f\n", darkness);
 				if (darkness<MIN_DARK_LEVEL) {	
 					if (i%100==0) {
 						time_t rawtime;
@@ -600,6 +601,10 @@ void * analyze() {
 					busy_wait(WAIT_TIME_DARK);
 					continue;
 				}
+				/*busy_wait(WAIT_TIME);
+				if (release==1) {
+					break;
+				}*/	
 	
 					
 				//blur_picture_inplace(currentImageFileNameSmall);
@@ -618,18 +623,26 @@ void * analyze() {
 			
 				//compare
 				//fprintf(stderr, "RMSE PIC\n");
-				float rmse = rmse_pictures(currentImageFileNameSmall,previousImageFileNameSmall);
+				//float rmse = rmse_pictures(currentImageFileNameSmall,previousImageFileNameSmall);
 				//fprintf(stderr,"RMSE is %f\n",rmse);
-
+				float rmse=0.0;
 				//check for motion
-				if (rmse>RMSE_THRESHOLD) {
+				if (1>0 || rmse>RMSE_THRESHOLD) {
 					fprintf(stderr,"passed threshold moving on to detector...\n");;
 					motion=10;
 					//int check = check_for_dog(currentImageFileName,currentImageFileNameSmall);	
-					int check=0;
-					if (i%2==0) {
-						//fprintf(stderr, "CHECK1 \n");
+					start_time("check for dog");
+					double check=0;
+					double sensitivity=get_sensitivity_threshold();
+					if (1>0 || i%2==0) {
 						check = check_for_dog(currentImageFileName,currentImageFileNameSmall);	
+						if (check>sensitivity) {
+							blur_picture(currentImageFileNameSmall, blurImageFileName);
+							double check_blur = check_for_dog(currentImageFileName,blurImageFileName);
+							if (check_blur>sensitivity*0.8) {
+								do_a_selfie(currentImageFileName,check);
+							}
+						}
 					} else {
 						//fprintf(stderr, "CHECK2 \n");
 						char cropped_filename[1024];
@@ -639,6 +652,7 @@ void * analyze() {
 						check = check_for_dog(currentImageFileName,cropped_filename);	
 						unlink(cropped_filename);
 					}
+					stop_time("check for dog");
 					//fprintf(stderr, "DONE RMSE\n");
 					if (check==1) {
 						//fprintf(stderr, "CHECK WAIT DONE \n");
@@ -664,9 +678,9 @@ void * analyze() {
 					}
 				}
 			}
-			fprintf(stderr,"LOOPA\n");
+			//fprintf(stderr,"LOOPA\n");
 		}
-		fprintf(stderr,"LOOPB\n");
+		//fprintf(stderr,"LOOPB\n");
 		if (exit_now==1) {
 			fprintf(stderr,"TRYING TO EXIT\n");
 			break;
