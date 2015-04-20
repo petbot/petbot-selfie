@@ -34,7 +34,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define WAIT_TIME 5
 #define LONG_WAIT_TIME 15000
 
-#define MIN_DARK_LEVEL 14000
+#define MIN_DARK_LEVEL 12000
 #define WAIT_TIME_DARK 60
 
 #define RMSE_THRESHOLD	1800
@@ -69,7 +69,7 @@ int downsample_picture(char * fn, char * fndown) ;
 
 void start_time(char * s) {
 	clock_gettime(CLOCK_REALTIME, &now);
-	fprintf(stderr,"%s\n",s);
+	//fprintf(stderr,"%s\n",s);
 	seconds = (double)((now.tv_sec+now.tv_nsec*1e-9) - (double)(tmstart.tv_sec+tmstart.tv_nsec*1e-9));
 }
 void stop_time(char * s) {
@@ -195,7 +195,7 @@ float rmse_pictures(char * fn1,char * fn2, char * metric) {
 	//master
 	waitpid(pid,NULL,0);	
 	close(pipefd[0]);
-	fprintf(stderr,"RMSE IS %f\n",rmse);
+	//fprintf(stderr,"RMSE IS %f\n",rmse);
 	stop_time("RMSE - Done");
 	return rmse;
 }
@@ -233,6 +233,7 @@ int take_picture(char * fn, char * fn_small) {
 			//TODO make sure acquired image file
 			/*char * args[] = { "/usr/bin/fswebcam","-r","640x480","--skip","5",
 				"--no-info","--no-banner","--no-timestamp","--quiet",fn, "--scale", "320x240" ,fn_small, NULL };*/
+			//TODO CAN FIX V4L2grab not to hang!!!!
 			char * args[] = { "/home/pi/petbot-selfie/src/v4l2grab/v4l2grab","-o",fn,NULL};
 			int r = execv(args[0],args);
 			fprintf(stderr,"SHOULD NEVER REACH HERE %d\n",r);
@@ -449,7 +450,7 @@ double get_sensitivity_threshold() {
 			}
 		}
 	}
-	fprintf(stderr,"Sensitivity threshold is %lf\n",sensitivity);
+	//fprintf(stderr,"Sensitivity threshold is %lf\n",sensitivity);
 	return sensitivity;
 
 }
@@ -624,7 +625,7 @@ void * analyze() {
 				//compare
 				//fprintf(stderr, "RMSE PIC\n");
 				float rmse = rmse_pictures(currentImageFileNameSmall,previousImageFileNameSmall,"RMSE");
-				fprintf(stderr,"RMSE is %f\n",rmse);
+				//fprintf(stderr,"RMSE is %f\n",rmse);
 				//check for motion
 				if (rmse>RMSE_THRESHOLD || (rand() % 200)<3) { //with some random chance fire even if still
 					fprintf(stderr,"passed threshold moving on to detector...\n");;
@@ -633,23 +634,28 @@ void * analyze() {
 					start_time("check for dog");
 					double check=0;
 					double sensitivity=get_sensitivity_threshold();
-					if (1>0 || i%2==0) {
+					if (1>0) {
 						check = check_for_dog(currentImageFileName,currentImageFileNameSmall);	
 						if (check>sensitivity) {
-							blur_picture(currentImageFileNameSmall, blurImageFileName);
-							double check_blur = check_for_dog(currentImageFileName,blurImageFileName);
-							if (check_blur>sensitivity*0.8) {
+							char fn_buffer[1024];	
+							sprintf(fn_buffer,"%s_next",currentImageFileName);
+							//blur_picture(currentImageFileNameSmall, blurImageFileName);
+							//blur_picture(fn_buffer, blurImageFileName);
+							//double check_blur = check_for_dog(currentImageFileName,blurImageFileName);
+							downsample_picture(fn_buffer, currentImageFileNameSmall);
+							double check = check_for_dog(currentImageFileName,currentImageFileNameSmall);
+							if (check>sensitivity) {
 								do_a_selfie(currentImageFileName,check);
 							}
 						}
-					} else {
+					/*} else {
 						//fprintf(stderr, "CHECK2 \n");
 						char cropped_filename[1024];
 						sprintf(cropped_filename,"%s_cropped.jpg",currentImageFileNameSmall);
 						//fprintf(stderr, "CHECK3 \n");
 						crop_picture(currentImageFileNameSmall,cropped_filename);
 						check = check_for_dog(currentImageFileName,cropped_filename);	
-						unlink(cropped_filename);
+						unlink(cropped_filename);*/
 					}
 					stop_time("check for dog");
 					//fprintf(stderr, "DONE RMSE\n");

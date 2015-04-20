@@ -69,6 +69,9 @@
 #define VIDIOC_REQBUFS_COUNT 2
 #endif
 
+int reads=0;
+int skip_reads=2;
+
 typedef enum {
 #ifdef IO_READ
         IO_METHOD_READ,
@@ -139,7 +142,15 @@ static void jpegWrite(unsigned char* img)
 	struct jpeg_error_mgr jerr;
 
 	JSAMPROW row_pointer[1];
-	FILE *outfile = fopen( jpegFilename, "wb" );
+	char buffer[1028];
+	assert(reads>=skip_reads);	
+	if (reads-skip_reads>0) {
+		sprintf(buffer,"%s",jpegFilename);
+	} else {
+		sprintf(buffer,"%s_next",jpegFilename);
+	}
+	fprintf(stderr,"WRITE TO %s\n",buffer);
+	FILE *outfile = fopen( buffer, "wb" );
 
 	// try to open file for saving
 	if (!outfile) {
@@ -201,7 +212,7 @@ static void imageProcess(const void* p)
 /**
 	read single frame
 */
-static int frameRead(void)
+static int frameRead(int write_file)
 {
 	struct v4l2_buffer buf;
 #ifdef IO_USERPTR
@@ -225,7 +236,9 @@ static int frameRead(void)
 				}
 			}
 
-			imageProcess(buffers[0].start);
+			if (write_file==1) {
+				imageProcess(buffers[0].start);
+			}
 			break;
 #endif
 
@@ -251,8 +264,9 @@ static int frameRead(void)
 			}
 
 			assert(buf.index < n_buffers);
-
-			imageProcess(buffers[buf.index].start);
+			if (write_file==1) {
+				imageProcess(buffers[buf.index].start);
+			}
 
 			if (-1 == xioctl(fd, VIDIOC_QBUF, &buf))
 				errno_exit("VIDIOC_QBUF");
@@ -287,7 +301,9 @@ static int frameRead(void)
 
 				assert (i < n_buffers);
 
-				imageProcess((void *)buf.m.userptr);
+				if (write_file==1) {
+					imageProcess((void *)buf.m.userptr);
+				}
 
 				if (-1 == xioctl(fd, VIDIOC_QBUF, &buf))
 					errno_exit("VIDIOC_QBUF");
@@ -303,48 +319,47 @@ static int frameRead(void)
 */
 static void mainLoop(void)
 {	
-	unsigned int count;
 	unsigned int numberOfTimeouts;
-
 	numberOfTimeouts = 0;
-	count = 3;
 
-	while (count-- > 0) {
-		for (;;) {
-			fd_set fds;
-			struct timeval tv;
-			int r;
 
-			FD_ZERO(&fds);
-			FD_SET(fd, &fds);
+	int attempts=0;
+	for(attempts=0; attempts<6; attempts++) {
+		fd_set fds;
+		struct timeval tv;
+		int r;
 
-			/* Timeout. */
-			tv.tv_sec = 1;
-			tv.tv_usec = 0;
+		FD_ZERO(&fds);
+		FD_SET(fd, &fds);
 
-			r = select(fd + 1, &fds, NULL, NULL, &tv);
+		/* Timeout. */
+		tv.tv_sec = 1;
+		tv.tv_usec = 0;
 
-			if (-1 == r) {
-				if (EINTR == errno)
-					continue;
+		r = select(fd + 1, &fds, NULL, NULL, &tv);
 
-				errno_exit("select");
-			}
 
-			if (0 == r) {
-				if (numberOfTimeouts <= 0) {
-					count++;
-				} else {
-					fprintf(stderr, "select timeout\n");
-					exit(EXIT_FAILURE);
-				}
-			}
+		if (-1 == r) {
+			if (EINTR == errno)
+				continue;
 
-			if (frameRead())
-				break;
-
-			/* EAGAIN - continue select loop. */
+			errno_exit("select");
 		}
+
+		if (0 == r) {
+			fprintf(stderr, "select timeout\n");
+			exit(EXIT_FAILURE);
+		}
+
+	
+		if (frameRead(reads>=skip_reads)) {
+			reads++;
+		}
+		if (reads>3) {
+			return;
+		}
+
+		/* EAGAIN - continue select loop. */
 	}
 }
 
