@@ -243,7 +243,7 @@ int take_picture(char * fn, char * fn_small) {
 		fd_set          set;
 		struct          timeval timeout;
 		FD_ZERO(&set);
-		timeout.tv_sec = 1;
+		timeout.tv_sec = 2;
 		timeout.tv_usec = 0;
 		FD_SET(filedes[0], &set);
 		if (select(filedes[0]+1, &set, NULL,  NULL, &timeout)==0) {
