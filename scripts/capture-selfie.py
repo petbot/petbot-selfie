@@ -41,8 +41,8 @@ def deviceID():
 
 def capture():
 	fps=30
-	width=640
-	height=480
+	width=320
+	height=240
 	bitrate=500000
 	seconds=11
 	fn=selfie_clip
