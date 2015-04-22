@@ -397,7 +397,7 @@ int busy_wait(int s) {
 	return x;
 }
 
-void long_wait(int s) {
+void long_wait_helper(int s) {
 	time_to_wait+=s;
 	fprintf(stderr,"Need to wait %d more seconds\n", time_to_wait);
 	time_to_wait-=busy_wait(time_to_wait);	
@@ -506,6 +506,28 @@ double check_for_dog(char * fn , char * fndown) {
 }
 
 
+
+void long_wait() {
+	int long_wait_time=LONG_WAIT_TIME;
+	char * long_wait_time_fn="/home/pi/long_wait_time";
+	if ( access( long_wait_time_fn, F_OK ) != -1 ) {
+		//have a sensitivity file lets use that
+		char buffer[128];
+		FILE * fptr=fopen(long_wait_time_fn,"r");
+		if (fptr==NULL) {
+			fprintf(stderr,"error opening long wait time file %s\n", long_wait_time_fn);
+		} else {
+			fread(buffer, 1, 128, fptr);
+			int x =atoi(buffer);
+			if (x<=1.0 && x>0.0) {
+				long_wait_time=x;
+			}
+		}
+	}
+	//busy_wait(LONG_WAIT_TIME);
+	fprintf(stderr,"waiting for %d\n", long_wait_time);
+	long_wait_helper(long_wait_time);
+}
 
 
 
@@ -634,53 +656,28 @@ void * analyze() {
 					start_time("check for dog");
 					double check=0;
 					double sensitivity=get_sensitivity_threshold();
-					if (1>0) {
-						check = check_for_dog(currentImageFileName,currentImageFileNameSmall);	
+					check = check_for_dog(currentImageFileName,currentImageFileNameSmall);	
+					if (check>sensitivity) {
+						char fn_buffer[1024];	
+						sprintf(fn_buffer,"%s_next",currentImageFileName);
+						//blur_picture(currentImageFileNameSmall, blurImageFileName);
+						//blur_picture(fn_buffer, blurImageFileName);
+						//double check_blur = check_for_dog(currentImageFileName,blurImageFileName);
+						downsample_picture(fn_buffer, currentImageFileNameSmall);
+						double check = check_for_dog(currentImageFileName,currentImageFileNameSmall);
 						if (check>sensitivity) {
-							char fn_buffer[1024];	
-							sprintf(fn_buffer,"%s_next",currentImageFileName);
-							//blur_picture(currentImageFileNameSmall, blurImageFileName);
-							//blur_picture(fn_buffer, blurImageFileName);
-							//double check_blur = check_for_dog(currentImageFileName,blurImageFileName);
-							downsample_picture(fn_buffer, currentImageFileNameSmall);
-							double check = check_for_dog(currentImageFileName,currentImageFileNameSmall);
-							if (check>sensitivity) {
-								do_a_selfie(currentImageFileName,check);
-							}
+							do_a_selfie(currentImageFileName,check);
+							long_wait();
 						}
-					/*} else {
-						//fprintf(stderr, "CHECK2 \n");
+					}
+						/*//fprintf(stderr, "CHECK2 \n");
 						char cropped_filename[1024];
 						sprintf(cropped_filename,"%s_cropped.jpg",currentImageFileNameSmall);
 						//fprintf(stderr, "CHECK3 \n");
 						crop_picture(currentImageFileNameSmall,cropped_filename);
 						check = check_for_dog(currentImageFileName,cropped_filename);	
 						unlink(cropped_filename);*/
-					}
 					stop_time("check for dog");
-					//fprintf(stderr, "DONE RMSE\n");
-					if (check==1) {
-						//fprintf(stderr, "CHECK WAIT DONE \n");
-						int long_wait_time=LONG_WAIT_TIME;
-						char * long_wait_time_fn="/home/pi/long_wait_time";
-						if ( access( long_wait_time_fn, F_OK ) != -1 ) {
-							//have a sensitivity file lets use that
-							char buffer[128];
-							FILE * fptr=fopen(long_wait_time_fn,"r");
-							if (fptr==NULL) {
-								fprintf(stderr,"error opening long wait time file %s\n", long_wait_time_fn);
-							} else {
-								fread(buffer, 1, 128, fptr);
-								int x =atoi(buffer);
-								if (x<=1.0 && x>0.0) {
-									long_wait_time=x;
-								}
-							}
-						}
-						//busy_wait(LONG_WAIT_TIME);
-						fprintf(stderr,"waiting for %d\n", long_wait_time);
-						long_wait(long_wait_time);
-					}
 				}
 			}
 			//fprintf(stderr,"LOOPA\n");
